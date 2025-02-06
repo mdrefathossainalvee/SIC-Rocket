@@ -1,55 +1,47 @@
-#include <SPI.h>
-#include <LoRa.h>
 #include <Wire.h>
 #include <Adafruit_BMP085.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+#include <SPI.h>
+#include <LoRa.h>
 
 #define SS 5
 #define RST 14
-#define DI0 26
-#define OLED_RESET -1
+#define DIO0 26
 
 Adafruit_BMP085 bmp;
-Adafruit_SSD1306 display(128, 64, &Wire, OLED_RESET);
 
 void setup() {
     Serial.begin(115200);
-    if (!LoRa.begin(915E6)) {
-        Serial.println("LoRa init failed!");
-        while (1);
-    }
-    Serial.println("LoRa Transmitter Ready!");
+    while (!Serial);
+    
+    Serial.println("LoRa BMP180 Sender");
 
     if (!bmp.begin()) {
-        Serial.println("BMP180 not found!");
+        Serial.println("Could not find a valid BMP180 sensor, check wiring!");
         while (1);
     }
 
-    if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-        Serial.println("OLED init failed!");
+    LoRa.setPins(SS, RST, DIO0);
+
+    if (!LoRa.begin(915E6)) {  // Change frequency if needed (e.g., 433E6, 868E6)
+        Serial.println("LoRa init failed. Check your connections.");
         while (1);
     }
-    display.clearDisplay();
+    
+    Serial.println("LoRa initialized.");
 }
 
 void loop() {
-    float temp = bmp.readTemperature();
-    float pressure = bmp.readPressure() / 100.0;
+    float temperature = bmp.readTemperature();  // Read temperature in Celsius
+    float pressure = bmp.readPressure() / 100.0; // Convert to hPa
 
-    String data = "Temp=" + String(temp) + "C, Pressure=" + String(pressure) + "hPa";
+    String dataToSend = String(temperature) + "," + String(pressure);
 
-    Serial.println("Sending: " + data);
+    Serial.print("Sending: ");
+    Serial.println(dataToSend);
+
     LoRa.beginPacket();
-    LoRa.print(data);
+    LoRa.print(dataToSend);
     LoRa.endPacket();
 
-    display.clearDisplay();
-    display.setTextSize(1);
-    display.setTextColor(WHITE);
-    display.setCursor(0, 10);
-    display.println(data);
-    display.display();
-
-    delay(2000);
+    delay(5000); // Send every 5 seconds
 }
